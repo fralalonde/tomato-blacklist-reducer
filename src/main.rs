@@ -4,19 +4,20 @@ use std::fs::File;
 use std::path::Path;
 use std::env;
 use std::collections::HashMap;
+use std::ops::Index;
 
 struct Decomposing<B> {
     buf: B,
-    length: u32,
-    index: u32,
+    length: usize,
+    index: usize,
 }
 
 trait Decomposable {
-    fn substrings(self, minLen: u32) -> Decomposing<Self> where Self: Sized;
+    fn substrings(self, minLen: usize) -> Decomposing<Self> where Self: Sized;
 }
 
 impl<'a> Decomposable for &'a str {
-    fn substrings(self, len: u32) -> Decomposing<Self>
+    fn substrings(self, len: usize) -> Decomposing<Self>
         where Self: Sized
     {
         Decomposing {
@@ -31,9 +32,10 @@ impl<'a> Iterator for Decomposing<&'a str> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<&'a str> {
-        self.index += 1;
-        if self.index < self.length {
-            Some(&self.buf)
+        if self.index + self.length < self.buf.len() {
+            let ref subs = self.buf[self.index..self.index + self.length];
+            self.index += 1;
+            Some(subs)
         } else {
             None
         }
@@ -41,8 +43,8 @@ impl<'a> Iterator for Decomposing<&'a str> {
 }
 
 fn main() {
-    let mut domain_list: Vec<String> = Vec::new();
-    let mut domains: HashMap<&str, u32> = HashMap::new();
+    let mut blacklist: Vec<String> = Vec::new();
+    let mut whitelist: Vec<String> = Vec::new();
 
     let mut args = env::args();
     args.next(); // skip the program name
@@ -55,21 +57,56 @@ fn main() {
             .unwrap();
         for l in lines {
             match l {
-                Ok(line) => domain_list.push(line),
+                Ok(line) => {
+                    if b.starts_with("white") {
+                        whitelist.push(format!("^{}$$", line))
+                    } else {
+                        blacklist.push(format!("^{}$$", line))
+                    }
+                }
                 Err(_) => {}
             }
         }
     }
 
-    println!("LINES {}", domain_list.len());
-    
-    for k in &domain_list {
-        for z in k.substrings(3) {
-            let count = domains.entry(z).or_insert(0);
-            *count += 1;
+    println!("LINES white {} black {}", whitelist.len(), blacklist.len());
+
+    let mut whitemains: HashMap<&str, usize> = HashMap::new();
+    for k in &whitelist {
+        // start with smallest substrings, up to full string
+        for i in 3..k.len() {
+            for z in k.substrings(i) {
+                *whitemains.entry(z).or_insert(0) += 1;
+            }
         }
     }
 
-    println!("LINES {}", domains.len());
+    let mut domains: HashMap<&str, usize> = HashMap::new();
+    for k in &blacklist {
+        // start with smallest substrings, up to full string
+        for i in 3..k.len() {
+            for z in k.substrings(i) {
+                if !whitemains.contains_key(z) {
+                    *domains.entry(z).or_insert(0) += 1;
+                }
+            }
+        }
+    }
+
+    println!("UNIQUE SUBSTRINGS {}", domains.len());
+
+    let mut sorted_parts: Vec<(&&str, &usize)> = domains.iter().collect();
+    sorted_parts.sort_by(|a, b| b.1.cmp(a.1));
+
+    for i in 0..20 {
+        let (id, count) = *sorted_parts.index(i);
+        println!("[{}] {} : {}", i, id, count);
+    }
+
+    for i in 0..200 {
+        let (id, _) = *sorted_parts.index(i);
+        println!("{}", id);
+    }
+
 
 }
