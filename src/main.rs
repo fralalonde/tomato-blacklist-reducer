@@ -1,3 +1,6 @@
+#![feature(plugin)]
+
+#![plugin(clippy)]
 
 use std::io::{BufReader, BufRead};
 use std::fs::File;
@@ -34,7 +37,7 @@ impl<'a> Iterator for Decomposing<&'a str> {
 
     fn next(&mut self) -> Option<&'a str> {
         if self.index + self.length < self.buf.len() {
-            let ref subs = self.buf[self.index..self.index + self.length];
+            let subs = &self.buf[self.index..self.index + self.length];
             self.index += 1;
             Some(subs)
         } else {
@@ -53,7 +56,7 @@ fn maybe_ip_address(addr: &str) -> bool {
     true
 }
 
-fn build_white_counts(whitelist: &Vec<String>, min_length: usize) -> HashSet<&str> {
+fn build_white_counts(whitelist: &[String], min_length: usize) -> HashSet<&str> {
     let mut white_counts: HashSet<&str> = HashSet::new();
     for k in whitelist {
         // start with smallest substrings, up to full string
@@ -83,17 +86,14 @@ fn load_lists() -> (Vec<String>, Vec<String>) {
     fn load_lines(b: String, list: &mut Vec<String>) {
         let path = Path::new(&b);
         let lines = File::open(path)
-            .map(|f| BufReader::new(f))
+            .map(BufReader::new)
             .map(|r| r.lines())
             .unwrap();
         for l in lines {
-            match l {
-                Ok(line) => {
-                    if !maybe_ip_address(&line) {
-                        list.push(format!("^{}$$", line))
-                    }
+            if let Ok(line) = l {
+                if !maybe_ip_address(&line) {
+                    list.push(format!("^{}$$", line))
                 }
-                Err(_) => {}
             }
         }
     }
@@ -150,12 +150,12 @@ fn main() {
         println!("[{}] {} : {}", i, id, count);
     }
 
-	let mut chars_out = 0;
+    let mut chars_out = 0;
     for i in sorted_parts {
-    	chars_out += i.0.len() + 2;
-		if chars_out > 2048 {
-			break;
-		}    	
+        chars_out += i.0.len() + 2;
+        if chars_out > 2048 {
+            break;
+        }
         println!("{}", i.0);
     }
 

@@ -5,4 +5,5 @@ version = "0.0.2"
 authors = [ "Francis Lalonde <fralalonde@gmail.com>" ]
 
 [dependencies]
-iron = "0.4.0"
+#iron = "0.4.0"
+clippy = "*"
